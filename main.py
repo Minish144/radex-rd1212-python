@@ -1,8 +1,13 @@
 from bluepy.btle import Peripheral, Characteristic, Descriptor, Service, UUID, DefaultDelegate
 import time
-import struct
+import os
+import dotenv
 
-MAC = '00:07:80:14:83:B6'
+dotenv.load_dotenv()
+
+MAC = os.getenv('MAC')
+if not MAC:
+    raise Exception('MAC address was not found in')
 
 UUID_SVC_CABLE_REPLACEMENT = UUID('0bd51666-e7cb-469b-8e4d-2742f1ba77cc')
 UUID_CHAR_CABLE_REPLACEMENT = UUID('e7add780-b042-4876-aae1-112855353cc1')

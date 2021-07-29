@@ -1,15 +1,17 @@
-from bluepy.btle import Peripheral, Characteristic, Descriptor, UUID, DefaultDelegate
+from bluepy.btle import Peripheral, Characteristic, Descriptor, Service, UUID, DefaultDelegate
 import time
+import struct
+
+MAC = '00:07:80:14:83:B6'
 
 UUID_SVC_CABLE_REPLACEMENT = UUID('0bd51666-e7cb-469b-8e4d-2742f1ba77cc')
 UUID_CHAR_CABLE_REPLACEMENT = UUID('e7add780-b042-4876-aae1-112855353cc1')
 UUID_DESC_CONFIGURATION = UUID('00002902-0000-1000-8000-00805f9b34fb')
 
-MAC = '00:07:80:14:83:B6'
-
 ENABLE_PROTOCOL = bytearray([2])
 
-_WRITE = bytearray([18, 18, 1, 1])
+REQUEST_SERIAL = b'\x12\x12\x01' + b'\x01' + b'\x00' * 10
+REQUEST_DATA = b'\x12\x12\x01' + b'\x02' + b'\x00' * 10
 
 class RD1212(Peripheral):
     def __init__(self, MAC: str):
@@ -28,6 +30,37 @@ class RD1212(Peripheral):
                 print(f'[{ch.getHandle()}]', '0x'+ format(ch.getHandle(),'02X')  +'   '+str(ch.uuid) +' ' + ch.propertiesToString())
         print('\n')
 
+    def enable_indications(self):
+        desc = self.get_configuaration_descriptor()
+        desc.write(ENABLE_PROTOCOL)
+        time.sleep(2)
+
+
+    def get_cable_replacement_char(self) -> Characteristic:
+        svc: Service = self.getServiceByUUID(UUID_SVC_CABLE_REPLACEMENT)
+        chars = svc.getCharacteristics(UUID_CHAR_CABLE_REPLACEMENT)
+        if len(chars) != 0:
+            return chars[0]
+        else:
+            raise Exception(f'failed to get cable replacement char, could not find such in {UUID_SVC_CABLE_REPLACEMENT} service')
+
+    def get_configuaration_descriptor(self) -> Descriptor:
+        svc: Service = self.getServiceByUUID(UUID_SVC_CABLE_REPLACEMENT)
+        chars = svc.getDescriptors(UUID_DESC_CONFIGURATION)
+        if len(chars) != 0:
+            return chars[0]
+        else:
+            raise Exception(f'failed to get configuration descriptor, could not find such in {UUID_SVC_CABLE_REPLACEMENT} service')
+
+    def request_data(self) -> None:
+        self.get_cable_replacement_char().write(
+            val=REQUEST_DATA, 
+            withResponse=True)
+
+    def handle_radiation(self, result: bytes):
+        last_byte = result[-1]
+        return None if last_byte == 0 else last_byte / 100
+
 class NotificationDelegate(DefaultDelegate):
     '''
     NotificationDelegate is a
@@ -42,9 +75,12 @@ class NotificationDelegate(DefaultDelegate):
         '''
         handleNotification handles new notification
         '''
-        print(f'[{hnd}]: {data}')
+        print(f'[{hnd}]: {list(data)}')
+        print(f'Radition: {self.device.handle_radiation(data)}')
+
 
 def main():
+    print('Connecting..')
     device = RD1212(MAC)
     print('Connected!')
 
@@ -53,24 +89,13 @@ def main():
     delegate = NotificationDelegate(device)
     device.setDelegate(delegate)
 
-    data_svc = device.getServiceByUUID(UUID_SVC_CABLE_REPLACEMENT)
-    
-    data_char = data_svc.getCharacteristics(UUID_CHAR_CABLE_REPLACEMENT)[0]
+    device.enable_indications()
+    time.sleep(1)
 
-    client_config: Descriptor = data_svc.getDescriptors(UUID_DESC_CONFIGURATION)[0]
+    while True:
+        device.request_data()
+        device.waitForNotifications(5)
+        time.sleep(30)
 
-    client_config.write(ENABLE_PROTOCOL)
-
-    time.sleep(0.5)
-
-    bytearr = bytearray(14)
-
-    bytearr[0] = 18
-    bytearr[1] = 18
-    bytearr[2] = 1
-    bytearr[3] = 1
-    
-    data_char.write(bytearr, True)
-    device.waitForNotifications(5)
-
-main()
+if __name__ == '__main__':
+    main()

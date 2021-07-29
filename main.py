@@ -14,6 +14,11 @@ REQUEST_SERIAL = b'\x12\x12\x01' + b'\x01' + b'\x00' * 10
 REQUEST_DATA = b'\x12\x12\x01' + b'\x02' + b'\x00' * 10
 
 class RD1212(Peripheral):
+    '''
+    RD1212 is a class which provides
+    you useful methods to work with
+    radex rd1212
+    '''
     def __init__(self, MAC: str):
         super().__init__(MAC)
     
@@ -31,10 +36,13 @@ class RD1212(Peripheral):
         print('\n')
 
     def enable_indications(self):
+        '''
+        enable_indications enables
+        notifications
+        '''
         desc = self.get_configuaration_descriptor()
         desc.write(ENABLE_PROTOCOL)
         time.sleep(2)
-
 
     def get_cable_replacement_char(self) -> Characteristic:
         svc: Service = self.getServiceByUUID(UUID_SVC_CABLE_REPLACEMENT)
@@ -45,6 +53,10 @@ class RD1212(Peripheral):
             raise Exception(f'failed to get cable replacement char, could not find such in {UUID_SVC_CABLE_REPLACEMENT} service')
 
     def get_configuaration_descriptor(self) -> Descriptor:
+        '''
+        get_configuaration_descriptor returns
+        configuration descriptor
+        '''
         svc: Service = self.getServiceByUUID(UUID_SVC_CABLE_REPLACEMENT)
         chars = svc.getDescriptors(UUID_DESC_CONFIGURATION)
         if len(chars) != 0:
@@ -53,11 +65,21 @@ class RD1212(Peripheral):
             raise Exception(f'failed to get configuration descriptor, could not find such in {UUID_SVC_CABLE_REPLACEMENT} service')
 
     def request_data(self) -> None:
+        '''
+        request_data sends data 
+        request which you catch and 
+        handle in NotificationDelegate 
+        .handleNotification method
+        '''
         self.get_cable_replacement_char().write(
             val=REQUEST_DATA, 
             withResponse=True)
 
-    def handle_radiation(self, result: bytes):
+    def handle_radiation(self, result: bytes) -> float:
+        '''
+        handle_radiation returns
+        radiation value
+        '''
         last_byte = result[-1]
         return None if last_byte == 0 else last_byte / 100
 
@@ -81,18 +103,18 @@ class NotificationDelegate(DefaultDelegate):
 
 def main():
     print('Connecting..')
-    device = RD1212(MAC)
+    device = RD1212(MAC) # initialize connection
     print('Connected!')
 
     # device.inspect()
 
     delegate = NotificationDelegate(device)
-    device.setDelegate(delegate)
+    device.setDelegate(delegate) # set indications handler
 
-    device.enable_indications()
+    device.enable_indications() # request for indications
     time.sleep(1)
 
-    while True:
+    while True: # request data and handle it in NotificationDelegate
         device.request_data()
         device.waitForNotifications(5)
         time.sleep(30)

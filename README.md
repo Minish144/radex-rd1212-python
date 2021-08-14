@@ -34,7 +34,7 @@ Cable Replacement Char. - `e7add780-b042-4876-aae1-112855353cc1`
 Configuration Desc. - `00002902-0000-1000-8000-00805f9b34fb`
 
 ## Pipeline
-1. Write 1 byte `0x02` to *Configuration Desc.* (i guess this asks tells device to enable sending data via bluetooth)
+1. Write 1 byte `0x02` to *Configuration Desc.* (i guess this tells device to enable sending data via bluetooth)
 2. Enable indicaitions for *Cable Replacement Char.*
 3. Every time you need to read data from the deviceб you have to write 14 bytes `0x12, 0x12, 0x01, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00` to *Cable Replacement Char.*
 4. and wait for notification from *Cable Replacement Char.*
